@@ -1,4 +1,4 @@
-APP_NAME=ldt
+APP_NAME=ldt-server
 
 .PHONY: all
 
@@ -12,8 +12,8 @@ clean:
 
 .PHONY: build
 
-build:
-	@go build -o $(APP_NAME) ./cmd/app
+build: clean
+	@go build -o $(APP_NAME) ./cmd
 	@echo "[✔️] Build complete!"
 
 .PHONY: run
