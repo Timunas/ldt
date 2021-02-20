@@ -10,7 +10,7 @@ import (
 func LoggingMiddleware(rw http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
 	log.Info().
 		Str("method", r.Method).
-		Str("path", r.RequestURI).
+		Str("path", r.URL.Path).
 		Msg("Request received...")
 
 	next.ServeHTTP(rw, r)
@@ -18,7 +18,7 @@ func LoggingMiddleware(rw http.ResponseWriter, r *http.Request, next http.Handle
 	statusCode := rw.(negroni.ResponseWriter).Status()
 	log.Info().
 		Str("method", r.Method).
-		Str("path", r.RequestURI).
+		Str("path", r.URL.Path).
 		Int("status_code", statusCode).
 		Msgf("Response sent: %s", http.StatusText(statusCode))
 }
