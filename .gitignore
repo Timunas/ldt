@@ -9,4 +9,7 @@
 *.test
 
 # app binary
-ldt
+ldt-server
+
+# env vars file
+.env
