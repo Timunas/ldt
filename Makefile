@@ -28,5 +28,5 @@ test:
 
 .PHONY: run
 
-run:
-	@./ldt
+run: build
+	@./ldt-server
