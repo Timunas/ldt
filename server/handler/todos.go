@@ -14,7 +14,8 @@ func TodosHandler(repository model.TodoRepository) func(w http.ResponseWriter, r
 
 		switch r.Method {
 		case "GET":
-			result, err := repository.FindAll()
+			userID := r.Context().Value(RequestContextUserIDKey{}).(string)
+			result, err := repository.FindByUserID(userID)
 
 			if err != nil {
 				log.Error().Err(err).Msg("Failed to fetch all objects...")
@@ -25,10 +26,9 @@ func TodosHandler(repository model.TodoRepository) func(w http.ResponseWriter, r
 			if err != nil {
 				log.Error().Err(err).Msg("Failed to encode response body...")
 				w.WriteHeader(http.StatusInternalServerError)
-			} else {
-				w.WriteHeader(http.StatusOK)
 			}
 		case "POST":
+			userID := r.Context().Value(RequestContextUserIDKey{}).(string)
 			body := TodoRequest{}
 			err := json.NewDecoder(r.Body).Decode(&body)
 
@@ -38,7 +38,7 @@ func TodosHandler(repository model.TodoRepository) func(w http.ResponseWriter, r
 				return
 			}
 
-			result, err := repository.Save(model.NewTodo(body.Name, body.Description))
+			result, err := repository.Save(model.NewTodo(body.Name, body.Description, userID))
 
 			if err != nil {
 				log.Error().Err(err).Msg("Failed to save object...")

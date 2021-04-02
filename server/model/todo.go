@@ -14,8 +14,8 @@ type Todo struct {
 	UserID      string `json:"-" bson:"user_id"`
 }
 
-func NewTodo(name string, description string) *Todo {
-	t := Todo{Name: name, Description: description}
+func NewTodo(name string, description string, userID string) *Todo {
+	t := Todo{Name: name, Description: description, UserID: userID}
 	return &t
 }
 

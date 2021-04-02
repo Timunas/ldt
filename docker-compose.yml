@@ -1,7 +1,33 @@
 version: '2'
 
 services:
+  deps:
+    image: tianon/true
+    depends_on:
+      - mongo
   mongo:
     image: mongo:4.4.3
     ports:
       - '27017:27017'
+  nginx-proxy:
+    image: jwilder/nginx-proxy
+    container_name: nginx-proxy
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+      - ./nginx/certs:/etc/nginx/certs
+  server:
+    build: .
+    ports:
+      - '8080:8080'
+    depends_on:
+      - mongo
+      - nginx-proxy
+    environment:
+      - MONGO_URI=mongodb://mongo:27017
+      - APP_HOST=timunas.test.dev
+      - APP_PORT=8080
+      - VIRTUAL_HOST=timunas.test.dev
+      - VIRTUAL_PORT=8080

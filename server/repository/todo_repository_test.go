@@ -16,15 +16,12 @@ var database = "test"
 var coll = "todo"
 
 func TestCreationAndFetching(t *testing.T) {
-	client, ctx, err := initDB()
+	ctx, client, repo, err := initRepository()
 	assert.NoError(t, err)
 	defer client.Close(*ctx)
-	db := client.Database(database)
-	todoCollection := db.Collection(coll)
-	repo := repository.NewTodoRepository(todoCollection, ctx)
 
 	beforeTestTime := time.Now()
-	todo := model.NewTodo("Some name", "Some description")
+	todo := model.NewTodo("Some name", "Some description", "userID")
 
 	savedTodo, err := repo.Save(todo)
 
@@ -37,20 +34,18 @@ func TestCreationAndFetching(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, savedTodo.ID, fetchedTodo.ID)
 	assert.Equal(t, savedTodo.Name, fetchedTodo.Name)
+	assert.Equal(t, savedTodo.UserID, fetchedTodo.UserID)
 	assert.Equal(t, savedTodo.Description, fetchedTodo.Description)
 	assert.Equal(t, savedTodo.CreateAt.Unix(), fetchedTodo.CreateAt.Unix())
 	assert.Equal(t, savedTodo.UpdateAt.Unix(), fetchedTodo.UpdateAt.Unix())
 }
 
 func TestSaveExistingTodo(t *testing.T) {
-	client, ctx, err := initDB()
+	ctx, client, repo, err := initRepository()
 	assert.NoError(t, err)
 	defer client.Close(*ctx)
-	db := client.Database(database)
-	todoCollection := db.Collection(coll)
-	repo := repository.NewTodoRepository(todoCollection, ctx)
 
-	savedTodo, err := repo.Save(model.NewTodo("Some name", "Some description"))
+	savedTodo, err := repo.Save(model.NewTodo("Some name", "Some description", "user id"))
 	assert.NoError(t, err)
 	assert.NotEmpty(t, savedTodo.ID)
 
@@ -68,23 +63,23 @@ func TestSaveExistingTodo(t *testing.T) {
 	assert.Equal(t, savedTodo.ID, updatedTodo.ID)
 	assert.Equal(t, savedTodo.Name, updatedTodo.Name)
 	assert.Equal(t, newDescription, updatedTodo.Description)
+	assert.Equal(t, savedTodo.UserID, updatedTodo.UserID)
 	assert.Equal(t, savedTodo.CreateAt.Unix(), updatedTodo.CreateAt.Unix())
 	assert.Less(t, beforeTestTime.Unix(), updatedTodo.UpdateAt.Unix())
 }
 
 func TestFindAll(t *testing.T) {
-	client, ctx, err := initDB()
+	ctx, client, repo, err := initRepository()
 	assert.NoError(t, err)
 	defer client.Close(*ctx)
-	db := client.Database(database)
-	todoCollection := db.Collection(coll)
-	repo := repository.NewTodoRepository(todoCollection, ctx)
 
 	name := "Some name"
 	description := "Some description"
-	firstTodo, err := repo.Save(model.NewTodo(name, description))
+	userIDFirst := "Some user id 1"
+	userIDSecond := "Some user id 1"
+	firstTodo, err := repo.Save(model.NewTodo(name, description, userIDFirst))
 	assert.NoError(t, err)
-	secondTodo, err := repo.Save(model.NewTodo(name, description))
+	secondTodo, err := repo.Save(model.NewTodo(name, description, userIDSecond))
 	assert.NoError(t, err)
 
 	todos, err := repo.FindAll()
@@ -94,25 +89,24 @@ func TestFindAll(t *testing.T) {
 	assert.Equal(t, firstTodo.Description, todos[0].Description)
 	assert.Equal(t, firstTodo.CreateAt.Unix(), todos[0].CreateAt.Unix())
 	assert.Equal(t, firstTodo.UpdateAt.Unix(), todos[0].UpdateAt.Unix())
+	assert.Equal(t, firstTodo.UserID, todos[0].UserID)
+
 	assert.Equal(t, secondTodo.ID, todos[1].ID)
 	assert.Equal(t, secondTodo.Name, todos[1].Name)
 	assert.Equal(t, secondTodo.Description, todos[1].Description)
 	assert.Equal(t, secondTodo.CreateAt.Unix(), todos[1].CreateAt.Unix())
 	assert.Equal(t, secondTodo.UpdateAt.Unix(), todos[1].UpdateAt.Unix())
+	assert.Equal(t, secondTodo.UserID, todos[1].UserID)
 }
 
 func TestFindByUserID(t *testing.T) {
-	client, ctx, err := initDB()
+	ctx, client, repo, err := initRepository()
 	assert.NoError(t, err)
 	defer client.Close(*ctx)
-	db := client.Database(database)
-	todoCollection := db.Collection(coll)
-	repo := repository.NewTodoRepository(todoCollection, ctx)
 
-	firstTodo := model.NewTodo("Some name", "Some description")
-	secondTodo := model.NewTodo("Some name", "Some description")
-	firstTodo.UserID = uuid.New().String()
-	secondTodo.UserID = firstTodo.UserID
+	firstTodo := model.NewTodo("Some name", "Some description", uuid.New().String())
+	secondTodo := model.NewTodo("Some name", "Some description", firstTodo.UserID)
+	model.NewTodo("Some name", "Some description", uuid.New().String())
 
 	firstTodo, err = repo.Save(firstTodo)
 	assert.NoError(t, err)
@@ -127,14 +121,11 @@ func TestFindByUserID(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
-	client, ctx, err := initDB()
+	ctx, client, repo, err := initRepository()
 	assert.NoError(t, err)
 	defer client.Close(*ctx)
-	db := client.Database(database)
-	todoCollection := db.Collection(coll)
-	repo := repository.NewTodoRepository(todoCollection, ctx)
 
-	todo, err := repo.Save(model.NewTodo("Some name", "Some description"))
+	todo, err := repo.Save(model.NewTodo("Some name", "Some description", "uid"))
 	assert.NoError(t, err)
 	_, err = repo.FindByID(todo.ID)
 	assert.NoError(t, err)
@@ -145,15 +136,21 @@ func TestDelete(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func initDB() (*qmgo.Client, *context.Context, error) {
+func initRepository() (*context.Context, *qmgo.Client, *repository.TodoRepo, error) {
 	ctx := context.Background()
 	client, err := qmgo.NewClient(ctx, &qmgo.Config{Uri: "mongodb://localhost:27017"})
 
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	err = client.Database(database).DropDatabase(ctx)
 
-	return client, &ctx, err
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	repo := repository.NewTodoRepository(client.Database(database).Collection(coll), &ctx)
+
+	return &ctx, client, repo, err
 }
