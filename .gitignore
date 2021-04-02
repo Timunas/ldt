@@ -13,3 +13,7 @@ ldt-server
 
 # env vars file
 .env
+
+# nginx certs
+*.crt
+*.key

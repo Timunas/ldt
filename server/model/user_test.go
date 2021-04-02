@@ -7,13 +7,13 @@ import (
 	"github.com/timunas/ldt/server/model"
 )
 
-func TestTodoCreation(t *testing.T) {
+func TestUserCreation(t *testing.T) {
 	name := "Some name"
-	description := "Some description"
-	result := model.NewTodo(name, description)
+	email := "some@email.com"
+	result := model.NewUser(name, email)
 
 	assert.Equal(t, name, result.Name)
-	assert.Equal(t, description, result.Description)
+	assert.Equal(t, email, result.Email)
 	assert.Empty(t, result.ID)
 	assert.True(t, result.CreateAt.IsZero())
 	assert.True(t, result.UpdateAt.IsZero())

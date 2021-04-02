@@ -19,7 +19,7 @@ build: clean
 .PHONY: test
 
 test:
-	@docker-compose up -d
+	@docker-compose up -d deps
 	@echo "[✔️] Docker containers started!"
 	@-go test -v ./...
 	@echo "[✔️] Tests terminated!"

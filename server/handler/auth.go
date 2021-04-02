@@ -9,6 +9,7 @@ import (
 	"github.com/dgrijalva/jwt-go"
 	"github.com/rs/zerolog/log"
 	"github.com/timunas/ldt/server/google"
+	"github.com/timunas/ldt/server/model"
 	"github.com/timunas/ldt/server/token"
 	"golang.org/x/oauth2"
 )
@@ -30,7 +31,6 @@ func AuthHandler(tokenService token.Service, googleConfig *oauth2.Config) func(w
 		if err != nil {
 			log.Error().Err(err).Msgf("Failed while generating state token")
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w)
 			return
 		}
 
@@ -39,7 +39,7 @@ func AuthHandler(tokenService token.Service, googleConfig *oauth2.Config) func(w
 	}
 }
 
-func AuthCallbackHandler(tokenService token.Service, googleConfig *oauth2.Config) func(w http.ResponseWriter, r *http.Request) {
+func AuthCallbackHandler(repository model.UserRepository, tokenService token.Service, googleConfig *oauth2.Config) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
@@ -48,7 +48,6 @@ func AuthCallbackHandler(tokenService token.Service, googleConfig *oauth2.Config
 		if err != nil {
 			log.Error().Err(err).Msgf("Invalid state received")
 			w.WriteHeader(http.StatusUnauthorized)
-			json.NewEncoder(w)
 			return
 		}
 
@@ -57,7 +56,6 @@ func AuthCallbackHandler(tokenService token.Service, googleConfig *oauth2.Config
 		if err != nil {
 			log.Error().Err(err).Msgf("Failed to exchange code")
 			w.WriteHeader(http.StatusUnauthorized)
-			json.NewEncoder(w)
 			return
 		}
 
@@ -66,7 +64,6 @@ func AuthCallbackHandler(tokenService token.Service, googleConfig *oauth2.Config
 		if err != nil {
 			log.Error().Err(err).Msgf("Failed to retrieve user information")
 			w.WriteHeader(http.StatusUnauthorized)
-			json.NewEncoder(w)
 			return
 		}
 
@@ -77,16 +74,49 @@ func AuthCallbackHandler(tokenService token.Service, googleConfig *oauth2.Config
 		if err != nil {
 			log.Error().Err(err).Msgf("Failed to parse user information response")
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w)
 			return
 		}
+
+		user, err := repository.FindByEmail(userInfo.Email)
+		if err != nil {
+			log.Info().Err(err).Msg("User not found. Creating a new one...")
+			user, err = repository.Save(model.NewUser(userInfo.Name, userInfo.Email))
+			if err != nil {
+				log.Error().Err(err).Msg("Failed to save object...")
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+		}
+
+		expiration := time.Now().Add(time.Hour * 1)
+		claims := jwt.StandardClaims{
+			IssuedAt:  time.Now().Unix(),
+			ExpiresAt: expiration.Unix(),
+			Issuer:    "ldt",
+			Subject:   user.ID,
+		}
+		token, err := tokenService.NewToken(claims)
+		if err != nil {
+			log.Error().Err(err).Msgf("Failed while generating cookie token")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		cookie := http.Cookie{
+			Name:     "Token",
+			Value:    token,
+			Path:     "/",
+			SameSite: http.SameSiteStrictMode,
+			HttpOnly: true,
+			Secure:   true,
+			Expires:  expiration,
+		}
+		http.SetCookie(w, &cookie)
 
 		err = json.NewEncoder(w).Encode(userInfo)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to encode response body...")
 			w.WriteHeader(http.StatusInternalServerError)
-		} else {
-			w.WriteHeader(http.StatusOK)
 		}
 	}
 }

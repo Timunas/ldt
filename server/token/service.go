@@ -6,7 +6,7 @@ import (
 
 type Service interface {
 	NewToken(claims jwt.Claims) (string, error)
-	ParseToken(newToken string) (jwt.Claims, error)
+	ParseToken(newToken string) (jwt.StandardClaims, error)
 }
 
 type JwtService struct {
@@ -47,7 +47,7 @@ func (g *JwtService) NewToken(claims jwt.Claims) (string, error) {
 	return token.SignedString(g.privateKey)
 }
 
-func (g *JwtService) ParseToken(newToken string) (jwt.Claims, error) {
+func (g *JwtService) ParseToken(newToken string) (jwt.StandardClaims, error) {
 	claims := jwt.StandardClaims{}
 	parsedToken, err := jwt.ParseWithClaims(
 		newToken,
@@ -61,7 +61,7 @@ func (g *JwtService) ParseToken(newToken string) (jwt.Claims, error) {
 	case err == nil && parsedToken.Valid:
 		return claims, nil
 	case err != nil:
-		return nil, err
+		return claims, err
 	default:
 		return claims, &jwtValidationError{"Invalid token claims"}
 	}
